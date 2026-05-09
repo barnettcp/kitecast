@@ -6,6 +6,12 @@ load_dotenv()
 
 
 def _require(name: str) -> str:
+    """Return the value of a required environment variable.
+
+    Raises:
+        ValueError: If the variable is missing or empty, with a message
+            directing the user to populate .env from .env.example.
+    """
     value = os.getenv(name)
     if not value:
         raise ValueError(

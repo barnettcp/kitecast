@@ -20,6 +20,15 @@ _LOCATIONS = [
 
 
 async def init_db() -> None:
+    """Initialise the SQLite database.
+
+    Creates the ``sessions`` and ``locations`` tables if they do not already
+    exist, and seeds the ``locations`` table with the approved spot list on
+    the first run (detected by an empty table).  Safe to call on every
+    startup — all DDL statements use ``CREATE TABLE IF NOT EXISTS``.
+
+    The ``data/`` directory is created automatically if it does not exist.
+    """
     db_dir = os.path.dirname(DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
@@ -77,6 +86,18 @@ async def init_db() -> None:
 
 
 async def insert_session(data: dict) -> int:
+    """Insert a new session record and return its auto-assigned ID.
+
+    Args:
+        data: A dictionary whose keys match the Phase 1 column names of the
+            ``sessions`` table.  The Phase 2 enrichment columns
+            (``wind_speed_actual``, ``wind_direction_actual``,
+            ``tide_height_m``) are intentionally omitted here and default to
+            NULL; they are populated later via UPDATE.
+
+    Returns:
+        The ``rowid`` / ``id`` of the newly inserted row.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             """
@@ -99,6 +120,20 @@ async def insert_session(data: dict) -> int:
 
 
 async def fetch_user_sessions(discord_user_id: str, limit: int = 5) -> list[dict]:
+    """Return the most recent sessions logged by a specific user.
+
+    Results are ordered by ``session_date`` descending, then by
+    ``logged_at`` descending as a tiebreaker, so the most recent session
+    always appears first.
+
+    Args:
+        discord_user_id: The Discord snowflake ID (as a string) of the user.
+        limit: Maximum number of rows to return.  Defaults to 5.
+
+    Returns:
+        A list of session rows as plain dictionaries, newest first.
+        Returns an empty list if the user has no sessions.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -115,6 +150,19 @@ async def fetch_user_sessions(discord_user_id: str, limit: int = 5) -> list[dict
 
 
 async def fetch_leaderboard(limit: int = 5) -> list[dict]:
+    """Return the top-rated sessions in the current calendar month.
+
+    Filters to sessions whose ``session_date`` falls in the current
+    ``YYYY-MM`` period, then orders by ``conditions_rating`` descending
+    with ``logged_at`` as a tiebreaker.
+
+    Args:
+        limit: Maximum number of rows to return.  Defaults to 5.
+
+    Returns:
+        A list of session rows as plain dictionaries, highest-rated first.
+        Returns an empty list if no sessions have been logged this month.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -131,6 +179,14 @@ async def fetch_leaderboard(limit: int = 5) -> list[dict]:
 
 
 async def fetch_locations() -> list[dict]:
+    """Return all approved kite spots from the ``locations`` table.
+
+    Results are ordered alphabetically by name, which is also the order
+    they appear in the ``/logsession`` location dropdown.
+
+    Returns:
+        A list of location rows as plain dictionaries.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM locations ORDER BY name") as cursor:

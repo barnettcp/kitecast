@@ -59,6 +59,12 @@ _RATING_OPTIONS = [
 # ---------------------------------------------------------------------------
 
 def _rating_emoji(rating: int) -> str:
+    """Return a coloured circle emoji corresponding to a conditions rating.
+
+    - 🟢 for 4–5 (good to excellent)
+    - 🟡 for 3 (average)
+    - 🔴 for 1–2 (poor to below average)
+    """
     if rating >= 4:
         return "🟢"
     if rating == 3:
@@ -67,6 +73,12 @@ def _rating_emoji(rating: int) -> str:
 
 
 def _rating_color(rating: int) -> int:
+    """Return the Discord embed hex colour corresponding to a conditions rating.
+
+    - Green  (``0x2ECC71``) for 4–5
+    - Yellow (``0xF1C40F``) for 3
+    - Red    (``0xE74C3C``) for 1–2
+    """
     if rating >= 4:
         return 0x2ECC71
     if rating == 3:
@@ -74,7 +86,11 @@ def _rating_color(rating: int) -> int:
     return 0xE74C3C
 
 
-def _fmt(value: str | None, fallback: str = "—") -> str:
+def _fmt(value: str | None, fallback: str = "\u2014") -> str:
+    """Return ``value`` if truthy, otherwise ``fallback``.
+
+    Used to display optional session fields as an em-dash when absent.
+    """
     return value if value else fallback
 
 
@@ -87,11 +103,28 @@ def _fmt(value: str | None, fallback: str = "—") -> str:
 # ---------------------------------------------------------------------------
 
 class TrackingSelect(discord.ui.Select):
+    """A Select menu that writes the chosen value back to its parent View.
+
+    Discord limits a View to 5 ActionRows (one per Select or Button).
+    With 7 fields to collect, the ``/logsession`` flow is split across two
+    Views (pages).  Each ``TrackingSelect`` stores its selection on the
+    parent View as an attribute named ``attr_name``, which the Submit/Next
+    button reads before proceeding.
+    """
+
     def __init__(self, attr_name: str, **kwargs):
+        """Initialise the select and record which View attribute to update.
+
+        Args:
+            attr_name: Name of the attribute on the parent View that will
+                receive the selected value.
+            **kwargs: Forwarded to ``discord.ui.Select``.
+        """
         super().__init__(**kwargs)
         self.attr_name = attr_name
 
     async def callback(self, interaction: discord.Interaction):
+        """Store the selected value on the parent View and defer the interaction."""
         setattr(self.view, self.attr_name, self.values[0])
         await interaction.response.defer()
 
@@ -101,6 +134,15 @@ class TrackingSelect(discord.ui.Select):
 # ---------------------------------------------------------------------------
 
 class SessionModal(discord.ui.Modal, title="Log Your Session"):
+    """Modal presented in step 2 of the ``/logsession`` flow.
+
+    Collects the five text-based session fields: date, time, duration,
+    kite size, and free-text notes.  Dropdown selections from the two
+    preceding Views are passed in via ``select_data`` and merged with the
+    modal's text inputs before the record is written to the database.
+
+    Discord modals support a maximum of 5 ``TextInput`` components.
+    """
     session_date = discord.ui.TextInput(
         label="Session Date (YYYY-MM-DD)",
         placeholder="e.g. 2026-05-09",
@@ -132,12 +174,26 @@ class SessionModal(discord.ui.Modal, title="Log Your Session"):
     )
 
     def __init__(self, select_data: dict):
+        """Initialise the modal and pre-fill today's date.
+
+        Args:
+            select_data: Dictionary of values collected from the two
+                preceding Select Menu Views (location, board type, wind
+                speed/direction, tide state, beginner-friendly, rating).
+        """
         super().__init__()
         # Pre-fill today's date
         self.session_date.default = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         self.select_data = select_data
 
     async def on_submit(self, interaction: discord.Interaction):
+        """Validate inputs, persist the session, and post the public embed.
+
+        Validates the date format and optional numeric fields before writing.
+        On success, sends a formatted embed to ``SESSION_CHANNEL_ID`` and
+        responds to the user with an ephemeral confirmation.  On any DB
+        failure the user receives an ephemeral error message.
+        """
         # Validate date
         try:
             datetime.strptime(self.session_date.value, "%Y-%m-%d")
@@ -231,6 +287,7 @@ class SessionModal(discord.ui.Modal, title="Log Your Session"):
         await interaction.response.send_message("Session logged! ✅", ephemeral=True)
 
     async def on_error(self, interaction: discord.Interaction, error: Exception):
+        """Handle unexpected exceptions raised inside ``on_submit``."""
         await interaction.response.send_message(
             "Something went wrong saving your session. Please try again.",
             ephemeral=True,
@@ -242,7 +299,22 @@ class SessionModal(discord.ui.Modal, title="Log Your Session"):
 # ---------------------------------------------------------------------------
 
 class ConditionsView(discord.ui.View):
+    """Page 2 of the ``/logsession`` flow.
+
+    Presents three Select menus (tide state, beginner-friendly,
+    conditions rating) and a button that opens the ``SessionModal``.
+    Selected values are merged with the data carried forward from page 1
+    before the modal is shown.
+    """
+
     def __init__(self, page1_data: dict):
+        """Initialise the View with selections carried over from page 1.
+
+        Args:
+            page1_data: Dictionary containing the selections made on
+                ``SessionFlowView`` (location, board type, wind speed,
+                wind direction).
+        """
         super().__init__(timeout=180)
         self.page1_data = page1_data
         self.message: discord.Message | None = None
@@ -258,6 +330,11 @@ class ConditionsView(discord.ui.View):
 
     @discord.ui.button(label="Open Session Form →", style=discord.ButtonStyle.green, row=3)
     async def open_form(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Validate page 2 selections and open the ``SessionModal``.
+
+        Sends an ephemeral error listing any unselected fields if the user
+        clicks the button before completing all three dropdowns.
+        """
         missing = [
             name for name, val in (
                 ("Tide State",        self.tide_state),
@@ -282,6 +359,7 @@ class ConditionsView(discord.ui.View):
         await interaction.response.send_modal(SessionModal(select_data))
 
     async def on_timeout(self):
+        """Edit the ephemeral message to inform the user the form has expired."""
         if self.message:
             try:
                 await self.message.edit(
@@ -297,7 +375,21 @@ class ConditionsView(discord.ui.View):
 # ---------------------------------------------------------------------------
 
 class SessionFlowView(discord.ui.View):
+    """Page 1 of the ``/logsession`` flow.
+
+    Presents four Select menus (location, board type, wind speed, wind
+    direction) and a Next button that transitions to ``ConditionsView``.
+    Location options are loaded dynamically from the ``locations`` table
+    so new spots can be added without a code change.
+    """
+
     def __init__(self, locations: list[dict]):
+        """Build the View with dynamically loaded location options.
+
+        Args:
+            locations: List of location rows from the database, each a
+                plain dictionary containing at minimum a ``name`` key.
+        """
         super().__init__(timeout=180)
         self.message: discord.Message | None = None
 
@@ -318,6 +410,12 @@ class SessionFlowView(discord.ui.View):
 
     @discord.ui.button(label="Next →", style=discord.ButtonStyle.blurple, row=4)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Validate page 1 selections and transition to ``ConditionsView``.
+
+        Sends an ephemeral error listing any unselected fields if the user
+        clicks Next before completing all four dropdowns.  On success,
+        edits the existing ephemeral message in place to show page 2.
+        """
         missing = [
             name for name, val in (
                 ("Location",       self.location),
@@ -349,6 +447,7 @@ class SessionFlowView(discord.ui.View):
         conditions_view.message = interaction.message
 
     async def on_timeout(self):
+        """Edit the ephemeral message to inform the user the form has expired."""
         if self.message:
             try:
                 await self.message.edit(
@@ -364,11 +463,25 @@ class SessionFlowView(discord.ui.View):
 # ---------------------------------------------------------------------------
 
 class SessionCog(commands.Cog):
+    """Cog containing all session-related slash commands.
+
+    Commands:
+        /logsession  — two-step Select Menu flow followed by a Modal.
+        /mysessions  — ephemeral list of the caller's last 5 sessions.
+        /leaderboard — public list of the top 5 sessions this month.
+    """
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.command(name="logsession", description="Log a kiteboarding session.")
     async def logsession(self, interaction: discord.Interaction):
+        """Open the two-step session logging flow.
+
+        Sends an ephemeral message containing ``SessionFlowView`` (page 1).
+        The user progresses through page 2 and a Modal before the session
+        is saved and a public embed is posted to ``#session-log``.
+        """
         locations = await database.fetch_locations()
         view = SessionFlowView(locations)
         await interaction.response.send_message(
@@ -380,6 +493,7 @@ class SessionCog(commands.Cog):
 
     @app_commands.command(name="mysessions", description="View your last 5 logged sessions.")
     async def mysessions(self, interaction: discord.Interaction):
+        """Display the calling user's last 5 sessions as an ephemeral embed."""
         sessions = await database.fetch_user_sessions(str(interaction.user.id))
         if not sessions:
             await interaction.response.send_message(
@@ -401,6 +515,7 @@ class SessionCog(commands.Cog):
 
     @app_commands.command(name="leaderboard", description="Top-rated sessions this month.")
     async def leaderboard(self, interaction: discord.Interaction):
+        """Post a public embed of the top 5 sessions this calendar month."""
         sessions = await database.fetch_leaderboard()
         if not sessions:
             await interaction.response.send_message("No sessions logged this month yet.")
