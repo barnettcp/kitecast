@@ -2,6 +2,8 @@
 
 A Discord bot for the Puget Sound kiteboarding community. Members log sessions via slash commands, building a structured dataset of conditions, locations, and ratings. Future phases will use that history to generate automated daily spot forecasts.
 
+For a full module-by-module reference, see the **[`docs/`](docs/index.md)** folder.
+
 ---
 
 ## Features (Phase 1)
