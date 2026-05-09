@@ -34,7 +34,7 @@ A Discord bot for the Puget Sound kiteboarding community. Members log sessions v
 **Prerequisites:** Python 3.12+, [uv](https://docs.astral.sh/uv/) installed.
 
 ```bash
-git clone https://github.com/yourusername/kitecast.git
+git clone https://github.com/barnettcp/kitecast.git
 cd kitecast
 
 # Create virtual environment and install dependencies
@@ -105,6 +105,6 @@ See [`deploy/kitebot.service`](deploy/kitebot.service) for the systemd unit file
 
 ---
 
-## A Note on Development Approach
+## AI Disclaimer on Development Approach
 
 This project was built with significant assistance from GitHub Copilot (AI pair programming). The architecture, data model, and implementation decisions were designed and reviewed by the author; AI tooling was used to accelerate code generation and catch issues early. The intent is a bot that works correctly and is maintainable — AI assistance was a means to that end, not a shortcut around understanding the code.
