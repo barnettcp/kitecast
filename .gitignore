@@ -1,0 +1,20 @@
+# Secrets
+.env
+
+# Database (keep the data/ folder but not the db file)
+data/*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Initial spec/prompts from Claude web UI
+kitecast_initial_spec.md

@@ -1,0 +1,15 @@
+[Unit]
+Description=PugetKite Discord Bot
+After=network.target
+
+[Service]
+Type=simple
+User=kitebot
+WorkingDirectory=/home/kitebot/kitecast
+ExecStart=/home/kitebot/kitecast/.venv/bin/python bot.py
+Restart=on-failure
+RestartSec=10
+EnvironmentFile=/home/kitebot/kitecast/.env
+
+[Install]
+WantedBy=multi-user.target
