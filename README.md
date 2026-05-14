@@ -1,6 +1,6 @@
-# PugetKite Discord Bot
+# KiteCast Discord Bot
 
-A Discord bot for the Puget Sound kiteboarding community. Members log sessions via slash commands, building a structured dataset of conditions, locations, and ratings. Future phases will use that history to generate automated daily spot forecasts.
+A Discord bot for the Puget Sound kiteboarding community. Members log sessions via slash commands, building a structured dataset of conditions, locations, and ratings. Future phases will use that history to generate automated daily spot forecasts. This is intended to be part utility for the community and part hobby project for me to toy with some data in a way that might help users out.
 
 For a full module-by-module reference, see the **[`docs/`](docs/index.md)** folder.
 
