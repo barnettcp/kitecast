@@ -7,7 +7,13 @@ from discord import app_commands
 from discord.ext import commands
 
 import database
-from config import SESSION_CHANNEL_ID
+from config import GUILD_ID, SESSION_CHANNEL_ID
+
+
+def _guild_check(interaction: discord.Interaction) -> bool:
+    """Restrict commands to the configured home guild."""
+    return interaction.guild_id == GUILD_ID
+
 
 # ---------------------------------------------------------------------------
 # Static select options
@@ -226,6 +232,20 @@ class SessionModal(discord.ui.Modal, title="Log Your Session"):
                     ephemeral=True,
                 )
                 return
+
+        if duration is not None and not (1 <= duration <= 720):
+            await interaction.response.send_message(
+                "Duration must be between 1 and 720 minutes.",
+                ephemeral=True,
+            )
+            return
+
+        if kite_size is not None and not (1.0 <= kite_size <= 30.0):
+            await interaction.response.send_message(
+                "Kite size must be between 1.0 and 30.0 m².",
+                ephemeral=True,
+            )
+            return
 
         now_utc = datetime.now(timezone.utc)
         data = {
@@ -474,7 +494,26 @@ class SessionCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    async def cog_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: app_commands.AppCommandError,
+    ) -> None:
+        """Handle cooldown and guild-check failures for all commands in this cog."""
+        if isinstance(error, app_commands.CommandOnCooldown):
+            await interaction.response.send_message(
+                f"Please wait {error.retry_after:.0f}s before logging another session.",
+                ephemeral=True,
+            )
+        elif isinstance(error, app_commands.CheckFailure):
+            await interaction.response.send_message(
+                "This command is not available here.",
+                ephemeral=True,
+            )
+
     @app_commands.command(name="logsession", description="Log a kiteboarding session.")
+    @app_commands.checks.cooldown(rate=1, per=60.0)
+    @app_commands.check(_guild_check)
     async def logsession(self, interaction: discord.Interaction):
         """Open the two-step session logging flow.
 
@@ -492,6 +531,7 @@ class SessionCog(commands.Cog):
         view.message = await interaction.original_response()
 
     @app_commands.command(name="mysessions", description="View your last 5 logged sessions.")
+    @app_commands.check(_guild_check)
     async def mysessions(self, interaction: discord.Interaction):
         """Display the calling user's last 5 sessions as an ephemeral embed."""
         sessions = await database.fetch_user_sessions(str(interaction.user.id))
@@ -514,6 +554,7 @@ class SessionCog(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="leaderboard", description="Top-rated sessions this month.")
+    @app_commands.check(_guild_check)
     async def leaderboard(self, interaction: discord.Interaction):
         """Post a public embed of the top 5 sessions this calendar month."""
         sessions = await database.fetch_leaderboard()

@@ -5,7 +5,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from config import SESSION_CHANNEL_ID
+from config import GUILD_ID, SESSION_CHANNEL_ID
+
+
+def _guild_check(interaction: discord.Interaction) -> bool:
+    """Restrict commands to the configured home guild."""
+    return interaction.guild_id == GUILD_ID
+
 
 _PACIFIC = zoneinfo.ZoneInfo("America/Los_Angeles")
 _POST_TIME = time(hour=20, minute=0, tzinfo=_PACIFIC)
@@ -30,6 +36,18 @@ class ForecastCog(commands.Cog):
     def cog_unload(self):
         """Cancel the background task when the cog is unloaded."""
         self.daily_forecast.cancel()
+
+    async def cog_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: app_commands.AppCommandError,
+    ) -> None:
+        """Handle guild-check failures for commands in this cog."""
+        if isinstance(error, app_commands.CheckFailure):
+            await interaction.response.send_message(
+                "This command is not available here.",
+                ephemeral=True,
+            )
 
     # -----------------------------------------------------------------------
     # Phase 3 stub — fires daily at 20:00 US/Pacific.
@@ -78,6 +96,7 @@ class ForecastCog(commands.Cog):
         name="forecast",
         description="On-demand spots outlook — coming in Phase 3.",
     )
+    @app_commands.check(_guild_check)
     async def forecast(self, interaction: discord.Interaction):
         """Respond with a placeholder spots outlook embed.
 
