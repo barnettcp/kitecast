@@ -18,3 +18,10 @@ Thumbs.db
 
 # Initial spec/prompts from Claude web UI
 kitecast_initial_spec.md
+
+# Jupyter Notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Build artifacts
+*.egg-info/
