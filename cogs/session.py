@@ -26,9 +26,9 @@ _BOARD_TYPES = [
 ]
 
 _WIND_SPEEDS = [
-    discord.SelectOption(label="10–15 knots", value="10-15"),
-    discord.SelectOption(label="15–20 knots", value="15-20"),
-    discord.SelectOption(label="20–25 knots", value="20-25"),
+    discord.SelectOption(label="10-15 knots", value="10-15"),
+    discord.SelectOption(label="15-20 knots", value="15-20"),
+    discord.SelectOption(label="20-25 knots", value="20-25"),
     discord.SelectOption(label="25+ knots",   value="25+"),
 ]
 
@@ -67,9 +67,9 @@ _RATING_OPTIONS = [
 def _rating_emoji(rating: int) -> str:
     """Return a coloured circle emoji corresponding to a conditions rating.
 
-    - 🟢 for 4–5 (good to excellent)
+    - 🟢 for 4-5 (good to excellent)
     - 🟡 for 3 (average)
-    - 🔴 for 1–2 (poor to below average)
+    - 🔴 for 1-2 (poor to below average)
     """
     if rating >= 4:
         return "🟢"
@@ -81,9 +81,9 @@ def _rating_emoji(rating: int) -> str:
 def _rating_color(rating: int) -> int:
     """Return the Discord embed hex colour corresponding to a conditions rating.
 
-    - Green  (``0x2ECC71``) for 4–5
+    - Green  (``0x2ECC71``) for 4-5
     - Yellow (``0xF1C40F``) for 3
-    - Red    (``0xE74C3C``) for 1–2
+    - Red    (``0xE74C3C``) for 1-2
     """
     if rating >= 4:
         return 0x2ECC71
