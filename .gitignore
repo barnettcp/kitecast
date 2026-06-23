@@ -4,6 +4,9 @@
 # Database (keep the data/ folder but not the db file)
 data/*.db
 
+# Weather cache — regenerable via fetch_or_update(), location list not finalised
+data/weather/
+
 # Python
 __pycache__/
 *.py[cod]
