@@ -28,3 +28,6 @@ kitecast_initial_spec.md
 
 # Build artifacts
 *.egg-info/
+
+# Service Files
+*.service

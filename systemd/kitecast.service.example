@@ -1,0 +1,19 @@
+[Unit]
+Description=KiteCast Discord Bot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=<your-user>
+Group=<your-user>
+WorkingDirectory=/path/to/your/kitecast
+ExecStart=/path/to/your/kitecast/.venv/bin/python /path/to/your/kitecast/bot.py
+Restart=on-failure
+RestartSec=10
+EnvironmentFile=/path/to/your/kitecast/.env
+StandardOutput=append:/path/to/your/kitecast/logs/kitecast.log
+StandardError=append:/path/to/your/kitecast/logs/kitecast.log
+
+[Install]
+WantedBy=multi-user.target
